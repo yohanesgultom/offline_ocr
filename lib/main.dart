@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/src/widgets/basic.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tesseract_ocr/tesseract_ocr.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
@@ -17,6 +16,12 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Offline OCR',
       home: MyHomePage(title: 'Offline OCR'),
+      theme: ThemeData(
+        // Define the default brightness and colors.
+        brightness: Brightness.light,
+        primaryColor: Colors.lightBlue[800],
+        accentColor: Colors.cyan[600],
+      ),
     );
   }
 }
@@ -47,7 +52,7 @@ class _MyHomePageState extends State<MyHomePage> {
     // For sharing images coming from outside the app while the app is in the memory
     _intentDataStreamSubscription =
         ReceiveSharingIntent.getMediaStream().listen((List<SharedMediaFile> value) {
-          if (value.isNotEmpty) {
+          if (value != null && value.isNotEmpty) {
             _onImageReceived(value[0]);
           }
         }, onError: (err) {
@@ -56,7 +61,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     // For sharing images coming from outside the app while the app is closed
     ReceiveSharingIntent.getInitialMedia().then((List<SharedMediaFile> value) {
-      if (value.isNotEmpty) {
+      if (value != null && value.isNotEmpty) {
         _onImageReceived(value[0]);
       }
     });
@@ -66,13 +71,15 @@ class _MyHomePageState extends State<MyHomePage> {
   void _onImageButtonPressed(ImageSource source, {BuildContext context}) async {
     try {
       final pickedFile = await _picker.getImage(source: source);
-
-      // extract text from file
-      String extractedText = await TesseractOcr.extractText(pickedFile.path, language: "eng");
-      // debugPrint(extractedText);
-      setState(() {
-        _extractedText = extractedText;
-      });
+      if (pickedFile != null) {
+        // extract text from file
+        String extractedText = await TesseractOcr.extractText(
+            pickedFile.path, language: "eng");
+        // debugPrint(extractedText);
+        setState(() {
+          _extractedText = extractedText;
+        });
+      }
     } catch (e) {
       setState(() {
         _pickImageError = e;
@@ -114,15 +121,19 @@ class _MyHomePageState extends State<MyHomePage> {
 
     if (_extractedText != null) {
       return ListView(
+        shrinkWrap: true,
         children: <Widget>[
-          Center(
-            child: Container(
-                padding: EdgeInsets.fromLTRB(20, 20, 20, 20),
-                child: Text('Detected Text',
-                    style: TextStyle(fontSize: 22))),
+          Container(
+            alignment: Alignment.center,
+            child: Text(
+                'Detected Text',
+                style: TextStyle(fontSize: 22)),
           ),
-          Center(
-            child: SelectableText(_extractedText),
+          Container(
+            padding: EdgeInsets.all(20.0),
+            child: SelectableText(
+              _extractedText,
+            ),
           ),
         ],
       );
@@ -157,38 +168,50 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
+        leading: GestureDetector(
+          onTap: () { /* Write listener code here */ },
+          child: Icon(
+            Icons.menu,  // add custom icons also
+          ),
+        ),
       ),
-      body: Container(
-        margin: const EdgeInsets.only(top: 20.0, left: 20.0),
-        child: !kIsWeb && defaultTargetPlatform == TargetPlatform.android
-            ? FutureBuilder<void>(
-          future: retrieveLostData(),
-          builder: (BuildContext context, AsyncSnapshot<void> snapshot) {
-            switch (snapshot.connectionState) {
-              case ConnectionState.none:
-              case ConnectionState.waiting:
-                return const Text(
-                  'Processing image..',
-                  textAlign: TextAlign.center,
-                );
-              case ConnectionState.done:
-                return _showExtractedText();
-              default:
-                if (snapshot.hasError) {
-                  return Text(
-                    'Pick image error: ${snapshot.error}}',
-                    textAlign: TextAlign.center,
-                  );
-                } else {
-                  return const Text(
-                    'You have not yet picked an image.',
-                    textAlign: TextAlign.center,
-                  );
+      body: Padding(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+                ? FutureBuilder<void>(
+              future: retrieveLostData(),
+              builder: (BuildContext context, AsyncSnapshot<void> snapshot) {
+                switch (snapshot.connectionState) {
+                  case ConnectionState.none:
+                  case ConnectionState.waiting:
+                    return const Text(
+                      'Processing image..',
+                      textAlign: TextAlign.center,
+                    );
+                  case ConnectionState.done:
+                    return _showExtractedText();
+                  default:
+                    if (snapshot.hasError) {
+                      return Text(
+                        'Pick image error: ${snapshot.error}}',
+                        textAlign: TextAlign.center,
+                      );
+                    } else {
+                      return const Text(
+                        'You have not yet picked an image.',
+                        textAlign: TextAlign.center,
+                      );
+                    }
                 }
-            }
-          },
-        )
-            : _showExtractedText(),
+              },
+            )
+                : _showExtractedText(),
+          ],
+        ),
       ),
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
